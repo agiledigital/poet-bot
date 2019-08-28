@@ -303,30 +303,44 @@ const redColumnCheck = async((kanbanBoardID, boardConfig) => {
 
 // Checks the 'prioritised' or 'scoped' columns for large issues and return an array of objects consisting of the results
 const largeIssues = async((kanbanBoardID, boardConfig) => {
-    var largeProjects = [];
     const columns = boardConfig.columnConfig.columns;
-    columnNames = [];
-    for (i = 0; i < columns.length; i++){
-        columnNames.push(columns[i].name.toUpperCase());
-    }
-    if (columnNames.includes("PRIORITISED")){
-        var result = await (returnLargeIssues(kanbanBoardID, columns[columnNames.indexOf('PRIORITISED')].statuses));
-        if (result !== '') {
-            largeProjects.push(dangerSlackResponse(`:exclamation: The prioritised column has the following tickets with story points > 3:${result}`));
+    const getResult = ((column) => {
+        if (column == null){
+            return null;
         }
-    } else {
-        largeProjects.push(dangerSlackResponse(`:warning: The project is missing a prioritised column`));
-    }
-
-    if (columnNames.includes("SCOPED")){
-        var result = await (returnLargeIssues(kanbanBoardID, columns[columnNames.indexOf('SCOPED')].statuses));
-        if (result !== '') {
-            largeProjects.push(dangerSlackResponse(`:exclamation: The scoped column has the following tickets with story points > 3:${result}`));
+        const result = await(returnLargeIssues(kanbanBoardID, column.statuses));
+        if(column.name.toUpperCase() == "PRIORITISED"){
+            if (result !== '') {
+                return dangerSlackResponse(`:exclamation: The prioritised column has the following tickets with story points > 3:${result}`);
+            }
         }
-    } else {
-        largeProjects.push(dangerSlackResponse(`:warning: The project is missing a scoped column`));
+        
+        if (column.name.toUpperCase() == "SCOPED"){
+            if (result !== '') {
+                return dangerSlackResponse(`:exclamation: The scoped column has the following tickets with story points > 3:${result}`);
+            }
+        }
+    })
+    const getValidColumns = function (column){
+        if(column.name.toUpperCase()=="PRIORITISED" || column.name.toUpperCase()=="SCOPED"){
+            return column;
+        }
     }
-    return largeProjects;
+    const getColumnName = function (column){
+        return column.name.toUpperCase();
+    }
+    const getMissingColumns = function(columnNames){
+        if (!(columnNames.includes("PRIORITISED")) &&  !(columnNames.includes("SCOPED")))
+            return dangerSlackResponse(`:warning: The project is missing a prioritised column and a scoped column`);
+        if (!(columnNames.includes("PRIORITISED")))
+            return dangerSlackResponse(`:warning: The project is missing a prioritised column`);
+        if (!(columnNames.includes("SCOPED")))
+            return dangerSlackResponse(`:warning: The project is missing a a scoped column`);       
+        return null;
+    }
+    const columnStatuses = fp.map(getValidColumns)(columns);
+    const missingColumns = getMissingColumns(fp.map(getColumnName)(columns));
+    return (fp.map(getResult)(columnStatuses)).concat(missingColumns).filter(Boolean);
 });
 
 // Returns issues that have storypoints > 3 if there is more than one of them
@@ -334,12 +348,12 @@ const returnLargeIssues = async((kanbanBoardID, statuses) => {
     const statusIDs = fp.map('id')(statuses);
     const jql =`jql=status in (${statusIDs.join(',')}) and issueType!= Epic and resolution is EMPTY ORDER BY created DESC`;
     const jiraResponse = await(jiraBoardInfo(kanbanBoardID, jql));
-    const getLargeIssues = function (issue) {
+    const getLargeIssues = ((issue) => {
         if (parseInt(issue[`fields`][process.env.JIRA_STORYPOINTS]) > 3){
             return issue;
         }
         return null;
-    };
+    });
     const getslackIssues = ((issue) => {
         const titles = `*${JiraService.HyperlinkJiraIssueID(issue['key'])}* - *${issue['fields']['summary']}*`;
         const timeAgos = Utils.timeFromNow(issue["fields"]['updated']);
