@@ -304,43 +304,37 @@ const redColumnCheck = async((kanbanBoardID, boardConfig) => {
 // Checks the 'prioritised' or 'scoped' columns for large issues and return an array of objects consisting of the results
 const largeIssues = async((kanbanBoardID, boardConfig) => {
     const columns = boardConfig.columnConfig.columns;
-    const getResult = ((column) => {
-        if (column == null){
-            return null;
-        }
-        const result = await(returnLargeIssues(kanbanBoardID, column.statuses));
-        if(column.name.toUpperCase() == "PRIORITISED"){
-            if (result !== '') {
-                return dangerSlackResponse(`:exclamation: The prioritised column has the following tickets with story points > 3:${result}`);
+    const result = ((column) => {
+        if (column.statuses.length > 0) {
+            const issues = await(returnLargeIssues(kanbanBoardID, column.statuses));
+            if(columnName(column) == "PRIORITISED"){
+                if (issues !== '') {
+                    return [dangerSlackResponse(`:exclamation: The prioritised column has the following tickets with story points > 3:${result}`)];
+                }
             }
-        }
         
-        if (column.name.toUpperCase() == "SCOPED"){
-            if (result !== '') {
-                return dangerSlackResponse(`:exclamation: The scoped column has the following tickets with story points > 3:${result}`);
+            if (columnName(column) == "SCOPED"){
+                if (issues !== '') {
+                    return [dangerSlackResponse(`:exclamation: The scoped column has the following tickets with story points > 3:${result}`)];
+                }
             }
         }
+        return [];
     })
-    const getValidColumns = function (column){
-        if(column.name.toUpperCase()=="PRIORITISED" || column.name.toUpperCase()=="SCOPED"){
-            return column;
-        }
-    }
-    const getColumnName = function (column){
+    const columnName = function (column){
         return column.name.toUpperCase();
     }
-    const getMissingColumns = function(columnNames){
+    const missingColumns = function (columnNames){
         if (!(columnNames.includes("PRIORITISED")) &&  !(columnNames.includes("SCOPED")))
-            return dangerSlackResponse(`:warning: The project is missing a prioritised column and a scoped column`);
+            return [dangerSlackResponse(`:warning: The project is missing a prioritised column and a scoped column`)];
         if (!(columnNames.includes("PRIORITISED")))
-            return dangerSlackResponse(`:warning: The project is missing a prioritised column`);
+            return [dangerSlackResponse(`:warning: The project is missing a prioritised column`)];
         if (!(columnNames.includes("SCOPED")))
-            return dangerSlackResponse(`:warning: The project is missing a a scoped column`);       
-        return null;
+            return [dangerSlackResponse(`:warning: The project is missing a a scoped column`)];       
+        return [];
     }
-    const columnStatuses = fp.map(getValidColumns)(columns);
-    const missingColumns = getMissingColumns(fp.map(getColumnName)(columns));
-    return (fp.map(getResult)(columnStatuses)).concat(missingColumns).filter(Boolean);
+    const missingColumn = fp.flow(fp.map(columnName), missingColumns)(columns);
+    return missingColumn.concat(fp.flatMap(result)(columns));
 });
 
 // Returns issues that have storypoints > 3 if there is more than one of them
