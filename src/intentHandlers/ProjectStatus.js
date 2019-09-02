@@ -311,9 +311,7 @@ const largeIssues = async((kanbanBoardID, boardConfig) => {
                 if (issues !== '') {
                     return [dangerSlackResponse(`:exclamation: The prioritised column has the following tickets with story points > 3:${result}`)];
                 }
-            }
-        
-            if (columnName(column) == "SCOPED"){
+            } else if (columnName(column) == "SCOPED"){
                 if (issues !== '') {
                     return [dangerSlackResponse(`:exclamation: The scoped column has the following tickets with story points > 3:${result}`)];
                 }
