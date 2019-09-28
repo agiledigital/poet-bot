@@ -1,5 +1,27 @@
 const Moment = require('moment');
 
+// iterate over all environment variables and returns false when it encounters
+// the first undefined variable. Returns true otherwise.
+module.exports.verifyEnvVariablesExist = () => {
+	const envVars = ["STAGE",
+					 "CLIENT_ID",
+					 "CLIENT_SECRET",
+					 "SLACK_BOT_ID",
+					 "LUIS_URL",
+					 "ACCESS_TOKEN_TABLE_NAME",
+					 "CHANNEL_CONTEXT_TABLE_NAME",
+					 "JIRA_NAME",
+					 "JIRA_PASSWORD",
+					 "JIRA_URL",
+					 "JIRA_ISSUE_ENDPOINT",
+					 "JIRA_SEARCH_ENDPOINT",
+					 "JIRA_PROJECT_ENDPOINT",
+					 "JIRA_BOARD_ENDPOINT",
+					 "JIRA_RAPIDVIEW_CONFIG_ENDPOINT",
+					 "JIRA_REPORT_INFO_ENDPOINT"];
+    return envVars.filter((variable) => process.env[variable] == null)
+}
+
 // return how long ago the argument 'date' is from now in
 // 'friendly time' (e.g. a few seconds ago, 2 days ago)
 module.exports.timeFromNow = (date) => {

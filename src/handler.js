@@ -56,7 +56,8 @@ module.exports.authorized = (event, context, callback) => {
 // receptionist Lambda responds to url_verification requests
 // or passes request onto event Lambda and immediately returns
 // a HTTP 200 response.
-module.exports.receptionist = (event, context, callback) => {
+module.exports.receptionist = async ((event, context, callback) => {
+    console.log("Stage: " + process.env.STAGE)
     // interactive Slack messages are URL encoded so they need to be decoded in the event body before parsing
     event.body = event.body.startsWith("payload") ? decodeURIComponent(event.body.substring(8)) : event.body;
     const jsonBody = JSON.parse(event.body);
@@ -81,37 +82,44 @@ module.exports.receptionist = (event, context, callback) => {
     const response = {
         statusCode: 200
     };
-    if (jsonBody.type === 'url_verification'){
-        response.headers = {
-            'Content-Type': 'application/x-www-form-urlencoded'
-        };
-        response.body = jsonBody.challenge;
-    // respond to bot mentions and interactive message callbacks from Slack. Ignore http_timeout retries
-    } else if (( jsonBody.type === "interactive_message" || jsonBody.event.text.includes(`@${client.botID}`) ) && !timeoutRetry){
-        // asynchronously call event Lambda
-        lambda.invoke({
-            FunctionName: 'poet-bot-dev-event',
-            InvocationType: 'Event',
-            Payload: JSON.stringify(event, null, 2)
-            }, function(error, data) {
-            if (error) {
-                console.log("Invoke error: " + error);
-//                context.done('error', error);
-            }
-            if(data.Payload){
-                console.log("Invoke success: " + data.Payload);
-                context.succeed(data.Payload)
-            }
-        });
-    } else if (!timeoutRetry) {
-        // ignore bot messages
-        if (!jsonBody.event.subtype || jsonBody.event.subtype !== 'bot_message'){
+
+    // check the existence of all environment variables and report to console if any are missing
+    const missingEnvVars = Utils.verifyEnvVariablesExist()
+    if (missingEnvVars.length > 0){
+        console.log(`Environment Variable Check failed, the following are missing in Receptionist Lambda.\n[${missingEnvVars.join(", ")}]`)
+    }
+
+    // handle the event, ignoring all timeouts and bot messages
+    if (!timeoutRetry && (!jsonBody.event.subtype || jsonBody.event.subtype !== 'bot_message') ){
+        if (jsonBody.type === 'url_verification'){
+            response.headers = {
+                'Content-Type': 'application/x-www-form-urlencoded'
+            };
+            response.body = jsonBody.challenge;
+        // respond to bot mentions and interactive message callbacks from Slack. Ignore http_timeout retries
+        } else if (( jsonBody.type === "interactive_message" || jsonBody.event.text.includes(`@${client.botID}`) )){
+            // asynchronously call event Lambda
+            lambda.invoke({
+                FunctionName: 'poet-bot-' + process.env.STAGE + '-event',
+                InvocationType: 'Event',
+                Payload: JSON.stringify(event, null, 2)
+                }, function(error, data) {
+                if (error) {
+                    console.log("Invoke error: " + error);
+                }
+                if(data.Payload){
+                    console.log("Invoke success: " + data.Payload);
+                    context.succeed(data.Payload)
+                }
+            });
+        } else {
+            // update context
             ContextService.maintainContextIssueID(jsonBody.event.text, jsonBody.event.channel);
         }
     }
 
     callback(null, response);
-};
+});
 
 // event Lambda calls Luis and palms execution off to intended intent handler
 module.exports.event = async ((event, context, callback) => {
@@ -120,7 +128,12 @@ module.exports.event = async ((event, context, callback) => {
         // retrieve the bot access token from the DynamoDB
         const botAccessToken = await (DBService.retrieveAccessToken(jsonBody.team_id)
             .catch(error => console.log(error)));
-    	if (jsonBody.event.type === 'message'){
+
+        const missingEnvVars = Utils.verifyEnvVariablesExist()
+        if (missingEnvVars.length > 0){
+            console.log(`Environment Variable Check failed, the following are missing in Receptionist Lambda.\n[${missingEnvVars.join(", ")}]`)
+            SlackService.postError(`The following environment variables are missing in Event Lambda. Message one of the developers in #poet-dev.\n[${missingEnvVars.join(", ")}]`, jsonBody.event.channel, botAccessToken);
+        } else if (jsonBody.event.type === 'message'){
             // ignore ourselves
             if (!jsonBody.event.subtype || jsonBody.event.subtype !== 'bot_message') {
                 // call Luis
@@ -164,6 +177,7 @@ const handleIntent = async ((response, event, token) => {
     }
 });
 
+// handler for interactive callbacks from Slack (e.g. when users interact with buttons presented by Poet)
 const handleInteractiveCallbacks = (event, token) => {
     console.log(`interactive callback for ${event.callback_id}`);
     // hand off execution to intended handler

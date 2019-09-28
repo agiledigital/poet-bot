@@ -37,7 +37,7 @@ Project Oriented Enlightenment Tool (Poet) is a serverless natural language proc
         url: "<Your Dev JIRA Base URL>"
         storypointsfieldID: "<Your Dev JIRA storypoints field name>"
 
-	production:
+	prod:
 	  slack:
 	    clientId: "<Your Production Slack App Client ID>"
 	    clientSecret: <Your Production Slack App Client Secret>
@@ -110,6 +110,20 @@ sls offline start
 
 You can then send requests to `localhost:3000/<FUNCTION_NAME>`
 
+## Release Process
+
+When making changes to shared files such as `serverless.yml` or `local.yml`, ensure that you call `sls deploy` to avoid inconsistencies across the various lambda functions. Even if you are making changes to only a single Lambda function and you are using `sls deploy function -f <FUNCTION_NAME>`, it is good practice to do an `sls deploy` every now and then. from the [documentation](https://serverless.com/framework/docs/providers/aws/cli-reference/deploy-function/):
+```
+The 'sls deploy function' command deploys an individual function without AWS CloudFormation. 
+Note: This command now deploys both function configuration and code by default. Just as before,
+this puts your function in an inconsistent state that is out of sync with your CloudFormation 
+stack. Use this for faster development cycles and not production deployments.
+```
+
+Also note that due to a [known bug in serverless](https://github.com/serverless/serverless/issues/4638), environment variables are not deploying to a function on AWS Lambda unless the code for that function is changed. This means that it's not possible to use an `sls deploy` to only update the environmental variables of the AWS Lambda function if no changes to that function's code have been made. To get around this for now, make menial changes to the code to force the update on deploy.
+
 ## Adding Functionality
 
-To add new intent functionality, train Luis for the intent and create a new handler in the [/intentHandlers](https://github.com/PouriaSterling/poet-bot/tree/master/src/intentHandlers) folder (making sure to use the exact same name for Luis and the file). Put all your logic in that file. You can use an existing intent handler as a template to get you started.
+To add new intent functionality, train Luis for the intent and create a new handler in the [/intentHandlers](https://github.com/PouriaSterling/poet-bot/tree/master/src/intentHandlers) folder (making sure to use the exact same name for the Luis intent and the file). Put all your logic in that file, using an existing intent handler as a template to get you started. For example, if you wanted Poet to respond to greetings, you would first train Luis with an intent called something like `Gratitude`, then you would make a file called `Gratitude.js` in the [/intentHandlers](https://github.com/PouriaSterling/poet-bot/tree/master/src/intentHandlers) folder to contain your logic.
+
+If any environment variables are added in the `serverless.yml` file, make sure to update the `envVars` array in [Utils.js](https://github.com/agiledigital/poet-bot/blob/master/src/services/Utils.js) with the variable too.

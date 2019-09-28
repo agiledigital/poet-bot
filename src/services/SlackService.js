@@ -14,6 +14,7 @@ module.exports.postMessage = async ((channel, text, attachments, token) => {
 
 // post an error message to Slack. Function provides consistent error reporting
 module.exports.postError = (errorMessage, channel, token) => {
+    console.log(`Slack [postError]\nmsg: ${errorMessage}\nchannel: ${channel}\ntoken: ${token}`)
     module.exports.postMessage(channel, "Whoops :cry:",
         [
             {
