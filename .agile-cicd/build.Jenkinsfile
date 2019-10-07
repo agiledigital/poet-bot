@@ -61,8 +61,17 @@ podTemplate(label: "${project}-deploy-pod-build-pod", cloud: 'openshift', contai
         gitCommitHash = scmVars.GIT_COMMIT
       }
 
-      stage('Run parallel builds') {
-        parallel(builds)
+      container('node1016-builder') {
+
+        stage('Install') {
+          sh "npm install"
+        }
+
+        stage('test serverless config') {
+          configFileProvider([configFile(fileId: 'env-config-settings', targetLocation: 'local.yml')]) {
+            sh "npm run sls -- deploy --noDeploy --stage dev"
+          }
+        }
       }
 
     } catch (InterruptedException e) {
