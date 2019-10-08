@@ -38,6 +38,8 @@ def buildNumber = env.BUILD_NUMBER;
 podTemplate(label: "${project}-deploy-pod-build-pod", cloud: 'openshift', containers: containers, volumes: volumeClaims) {
   node("${project}-deploy-pod-build-pod") {
 
+    // Calculating buildStage from params so we can use a single
+    // Jenkinsfile for build and deploy jobs
     final buildStage = params.BUILD_STAGE ?: 'build'
     def gitCommitHash = "unknown"
 
