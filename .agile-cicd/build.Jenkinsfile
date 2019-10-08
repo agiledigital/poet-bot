@@ -38,21 +38,8 @@ def buildNumber = env.BUILD_NUMBER;
 podTemplate(label: "${project}-deploy-pod-build-pod", cloud: 'openshift', containers: containers, volumes: volumeClaims) {
   node("${project}-deploy-pod-build-pod") {
 
-    final builds = [:]
-    final buildStage = (env.BRANCH_NAME == 'master' || env.BRANCH_NAME == 'develop') ? 'dist' : 'test'
-    final environment = env.BRANCH_NAME
+    final buildStage = params.BUILD_STAGE ?: 'build'
     def gitCommitHash = "unknown"
-
-    builds["Build Client Components"] = {
-      buildNode1016Component(
-        baseDir: "./",
-        project: "${project}",
-        component: "pds-client",
-        buildNumber: buildNumber,
-        stage: buildStage,
-        environment: environment
-      )
-    }
 
     try {
 
@@ -67,24 +54,35 @@ podTemplate(label: "${project}-deploy-pod-build-pod", cloud: 'openshift', contai
           sh "npm install"
         }
 
-        stage('test serverless config') {
-          configFileProvider([configFile(fileId: 'env-config-settings', targetLocation: 'local.yml')]) {
-            sh "npm run sls -- deploy --noDeploy --stage dev"
+        if (buildStage == 'deploy') {
+
+          stage('Deploy') {
+            configFileProvider([configFile(fileId: 'env-config-settings', targetLocation: 'local.yml')]) {
+              sh "npm run sls -- deploy --stage dev"
+            }
           }
+
+        } else {
+
+          stage('test serverless config') {
+            configFileProvider([configFile(fileId: 'env-config-settings', targetLocation: 'local.yml')]) {
+              sh "npm run sls -- deploy --noDeploy --stage dev"
+            }
+          }
+
         }
+
       }
 
     } catch (InterruptedException e) {
-      // Build interupted
+      // Build interrupted
       currentBuild.result = "ABORTED"
       throw e
     } catch (e) {
       // If there was an exception thrown, the build failed
       currentBuild.result = "FAILED"
       throw e
-    } finally {
-      // Success or failure, always send notifications
-    //   notifySlack(currentBuild.result)
-    }
+    } 
+
   }
 }
