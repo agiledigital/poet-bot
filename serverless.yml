@@ -11,7 +11,7 @@ provider:
   name: aws
   region: ap-southeast-2
   stage: ${opt:stage, 'dev'}
-  runtime: nodejs8.10
+  runtime: nodejs12.x
   environment:
     STAGE: ${self:provider.stage}
     TOPIC_ARN: !Ref PoetTopic
@@ -99,7 +99,7 @@ resources:
     PoetTopic:
       Type: AWS::SNS::Topic
       Properties:
-        TopicName: PoetTopic
+        TopicName: ${self:service}-${self:provider.stage}-topic
 
 plugins:
   - serverless-offline

@@ -31,6 +31,7 @@
   "scripts": {
     "sls": "serverless",
     "lint": "eslint src",
-    "build": "serverless package"
+    "build": "serverless package",
+    "deploy": "serverless deploy"
   }
 }

@@ -1,0 +1,43 @@
+name: Deploy to Production
+
+# Only run the deploy action when code is pushed to master
+on:
+  push:
+    branches:
+      - master
+
+jobs:
+  build:
+    name: Deploy
+    runs-on: ubuntu-latest
+
+    steps:
+      # Checks-out the repository under $GITHUB_WORKSPACE, so the job can access it
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      # Setup node environment
+      - name: Use Node.js Version 12
+        uses: actions/setup-node@v1
+        with:
+          node-version: '12'
+
+      - name: Install
+        run: yarn install --frozen-lockfile
+
+      # Create the required secrets and credentials file from "Secrets" stored in Github
+      - name: Create local.yml file
+        run: | 
+          cat > local.yml << EOF
+          ${{ secrets.ENV }}
+          EOF
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ap-southeast-2
+
+      - name: Deploy
+        run: yarn run deploy --stage production
